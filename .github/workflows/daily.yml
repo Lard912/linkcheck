@@ -1,0 +1,20 @@
+name: Daily LinkCheck
+on:
+  schedule:
+    - cron: "0 3 * * *"  # täglich 03:00 UTC
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
+      - run: source .venv/bin/activate && python linkcheck.py --start ${{ vars.LINKCHECK_START_URL }} --output out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linkcheck-report
+          path: out/
