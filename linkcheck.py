@@ -172,18 +172,47 @@ async def main():
             for r in broken:
                 w.writerow([r["url"],r["final_url"],r["status"] or "",r["hops"],r["error"] or ""])
 
-        with open(f"{args.output}/report.html","w",encoding="utf-8") as f:
-            rows = "\n".join(
-                f"<tr><td>{r['url']}</td><td>{r['final_url']}</td><td>{r['status']}</td><td>{r['hops']}</td><td>{r['error'] or ''}</td></tr>"
-                for r in broken
-            )
-            html = f"""<!doctype html><html lang="de"><meta charset="utf-8">
-            <title>LinkCheck Report</title>
-            <h1>Gefundene Broken Links</h1>
-            <table border="1"><tr><th>URL</th><th>Final URL</th><th>Status</th><th>Hops</th><th>Fehler</th></tr>
-            {rows if rows else '<tr><td colspan="5">Keine kaputten Links gefunden 🎉</td></tr>'}
-            </table></html>"""
-            f.write(html)
+with open(f"{args.output}/report.html","w",encoding="utf-8") as f:
+    def esc(s: str) -> str:
+        return (s or "").replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
+    rows = "\n".join(
+        f"<tr><td>{esc(r['url'])}</td><td>{esc(r['final_url'])}</td><td>{r['status'] or ''}</td><td>{r['hops']}</td><td>{esc(r['error'] or '')}</td></tr>"
+        for r in broken
+    )
+    # >>> NEU: Liste nur mit den gefundenen Error-Links (Ziel-URLs)
+    error_links = sorted({ r["url"] for r in broken })
+    error_list_html = (
+        "<ul>" + "".join(f"<li><code>{esc(u)}</code></li>" for u in error_links) + "</ul>"
+        if error_links else "<p>—</p>"
+    )
+    html = f"""<!doctype html><html lang="de"><meta charset="utf-8">
+    <title>LinkCheck Report</title>
+    <style>
+      body{{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Helvetica,Arial,sans-serif;padding:20px}}
+      table{{border-collapse:collapse;width:100%}} th,td{{border:1px solid #ddd;padding:8px}}
+      th{{background:#f6f6f6;text-align:left}} tr:nth-child(even){{background:#fafafa}}
+      code{{background:#f2f2f2;padding:2px 4px;border-radius:4px}}
+    </style>
+    <h1>Gefundene Broken Links</h1>
+    <p>Links geprüft: {len(results)} | Broken: {len(broken)}</p>
+    <table>
+      <thead><tr><th>URL (verlinkt)</th><th>Final URL</th><th>Status</th><th>Redirect-Hops</th><th>Fehler</th></tr></thead>
+      <tbody>
+      {rows if rows else '<tr><td colspan="5">Keine kaputten Links gefunden 🎉</td></tr>'}
+      </tbody>
+    </table>
+
+    <h2 style="margin-top:28px">Error-Links (nur URL)</h2>
+    <p>Diese Liste ist praktischer zum schnellen Kopieren/Überprüfen:</p>
+    {error_list_html}
+    </html>"""
+    f.write(html)
+
+# Zusätzlich (optional): reine Textliste der „Error-Links“ mitschreiben
+with open(f"{args.output}/error_links.txt","w",encoding="utf-8") as f:
+    for u in sorted({ r["url"] for r in broken }):
+        f.write(u + "\n")
+
 
 if __name__ == "__main__":
     asyncio.run(main())
